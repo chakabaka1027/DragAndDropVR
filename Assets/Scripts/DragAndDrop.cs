@@ -13,7 +13,11 @@ public class DragAndDrop : MonoBehaviour {
     GameObject leftObj;
     GameObject rightObj;
 
+    bool objSpawned = false;
+
     int currentlySelectedObjIndex = 0;
+
+    public LayerMask environment;
 
     void Start(){
         trackedObject = GetComponent<SteamVR_TrackedObject>();
@@ -37,28 +41,42 @@ public class DragAndDrop : MonoBehaviour {
     }
     void Update(){
         device = SteamVR_Controller.Input((int)trackedObject.index);
+        
+        //scroll thru menu when touching touchpad
         if(GetComponent<SteamVR_TrackedController>().padTouched){
             StartCoroutine("ScrollSelectItem");
         } else {
             StopCoroutine("ScrollSelectItem");
         }
+
+        //snap middle object to center when not touching touchpad
         if(!GetComponent<SteamVR_TrackedController>().padTouched){
             CenterMiddleObj();
+        }
+
+        //spawn obj when pressing trigger
+        if(GetComponent<SteamVR_TrackedController>().triggerPressed && !objSpawned){
+            SpawnObj();
+            objSpawned = true;
+        }
+
+        if(!GetComponent<SteamVR_TrackedController>().triggerPressed){
+            objSpawned = false;
         }
     }
 
     IEnumerator ScrollSelectItem(){
         //calculate swipe magnitude
         float initialTouch = device.GetAxis().x;
-        yield return new WaitForSeconds(0.1f);
+        yield return new WaitForSeconds(0.01f);
         float finalTouch = device.GetAxis().x;
         float touchDistance = finalTouch - initialTouch;
 
         //move object UI
         if(rightObj != null || middleObj != null || leftObj != null){
-            middleObj.transform.localPosition += new Vector3(touchDistance * .01f, 0, 0);
-            leftObj.transform.localPosition += new Vector3(touchDistance * .01f, 0, 0);
-            rightObj.transform.localPosition += new Vector3(touchDistance * .01f, 0, 0);
+            middleObj.transform.localPosition += new Vector3(touchDistance * .07f, 0, 0);
+            leftObj.transform.localPosition += new Vector3(touchDistance * .07f, 0, 0);
+            rightObj.transform.localPosition += new Vector3(touchDistance * .07f, 0, 0);
         }
 
         //scroll to the right
@@ -117,6 +135,15 @@ public class DragAndDrop : MonoBehaviour {
             rightObj.transform.localPosition = Vector3.MoveTowards(rightObj.transform.localPosition, new Vector3 (.1f, 0.06f, 0), step);
             leftObj.transform.localPosition = Vector3.MoveTowards(leftObj.transform.localPosition, new Vector3 (-.1f, 0.06f, 0), step);
         }
+    }
+
+    void SpawnObj(){
+        Ray raycast = new Ray(transform.position, transform.forward);
+        RaycastHit hit;
+        if(Physics.Raycast(raycast, out hit, Mathf.Infinity, environment)){
+            Instantiate(middleObj, hit.point, Quaternion.identity);
+        }
+
     }
 
 }

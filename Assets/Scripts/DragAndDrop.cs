@@ -25,22 +25,29 @@ public class DragAndDrop : MonoBehaviour {
     int currentlySelectedObjIndex = 0;
 
     public LayerMask environment;
+    public LayerMask spawnableObjects;
 
 
 
     void OnEnable() {
         SteamVR_TrackedController controller = GetComponent<SteamVR_TrackedController>();
         controller.PadClicked += OnPadClicked;
+        controller.TriggerClicked += OnTriggerClicked;
     }
 
     void OnDisable() {
         SteamVR_TrackedController controller = GetComponent<SteamVR_TrackedController>();
         controller.PadClicked -= OnPadClicked;
+        controller.TriggerClicked -= OnTriggerClicked;
     }
 
     void OnPadClicked(object sender, ClickedEventArgs e) {
         StopCoroutine("MenuToggle");
         StartCoroutine("MenuToggle");
+    }
+
+    void OnTriggerClicked(object sender, ClickedEventArgs e) {
+        IdentifyTarget();
     }
 
 
@@ -81,7 +88,7 @@ public class DragAndDrop : MonoBehaviour {
             }
 
             //spawn obj when pressing trigger
-            if(GetComponent<SteamVR_TrackedController>().triggerPressed ){
+            if(GetComponent<SteamVR_TrackedController>().triggerPressed){
                 if(!objSpawned){
                     SpawnObj();
                     objSpawned = true;
@@ -91,6 +98,19 @@ public class DragAndDrop : MonoBehaviour {
             }
             if(!GetComponent<SteamVR_TrackedController>().triggerPressed){
                 objSpawned = false;
+                if(heldObject != null){
+                    heldObject.GetComponent<Rigidbody>().isKinematic = false;
+                }
+                heldObject = null;
+            }
+        } 
+        
+        else {
+            //move obj when pressing trigger
+            if(GetComponent<SteamVR_TrackedController>().triggerPressed){
+                ObjFollowCursor();
+            }
+            if(!GetComponent<SteamVR_TrackedController>().triggerPressed){
                 if(heldObject != null){
                     heldObject.GetComponent<Rigidbody>().isKinematic = false;
                 }
@@ -196,6 +216,14 @@ public class DragAndDrop : MonoBehaviour {
             heldObject.transform.position = ray.GetPoint(5);
             heldObject.GetComponent<Rigidbody>().isKinematic = true;
 
+        } 
+    }
+
+    void IdentifyTarget(){
+        Ray raycast = new Ray(transform.position, transform.forward);
+        RaycastHit hit;
+        if(Physics.Raycast(raycast, out hit, Mathf.Infinity, spawnableObjects)){
+            heldObject = hit.collider.gameObject;
         } 
     }
 

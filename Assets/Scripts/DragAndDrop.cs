@@ -29,11 +29,11 @@ public class DragAndDrop : MonoBehaviour {
 
         rightObj = Instantiate(objects[1]) as GameObject;
         rightObj.transform.parent = holder.transform;
-        rightObj.transform.localPosition = new Vector3(.1f, .06f, 0f);
+        rightObj.transform.localPosition = middleObj.transform.localPosition + new Vector3(.1f, 0, 0f);
 
         leftObj = Instantiate(objects[2]) as GameObject;
         leftObj.transform.parent = holder.transform;
-        leftObj.transform.localPosition = new Vector3(-.1f, .06f, 0f);
+        leftObj.transform.localPosition = middleObj.transform.localPosition + new Vector3(-.1f, 0, 0f);
     }
     void Update(){
         device = SteamVR_Controller.Input((int)trackedObject.index);
@@ -41,6 +41,9 @@ public class DragAndDrop : MonoBehaviour {
             StartCoroutine("ScrollSelectItem");
         } else {
             StopCoroutine("ScrollSelectItem");
+        }
+        if(!GetComponent<SteamVR_TrackedController>().padTouched){
+            CenterMiddleObj();
         }
     }
 
@@ -59,7 +62,7 @@ public class DragAndDrop : MonoBehaviour {
         }
 
         //scroll to the right
-        if(middleObj.transform.localPosition.x > .1f){
+        if(middleObj.transform.localPosition.x >= .05f){
             currentlySelectedObjIndex--;
             if(currentlySelectedObjIndex < 0){
                 currentlySelectedObjIndex = objects.Count - 1;
@@ -78,12 +81,12 @@ public class DragAndDrop : MonoBehaviour {
                leftObj = Instantiate(objects[currentlySelectedObjIndex-1]) as GameObject;
             }
             leftObj.transform.parent = holder.transform;
-            leftObj.transform.localPosition = new Vector3(-.1f, .06f, 0f);
+            leftObj.transform.localPosition = middleObj.transform.localPosition + new Vector3(-.1f, 0, 0f);
             leftObj.transform.localEulerAngles = Vector3.zero;
         }
 
         //scroll to the left
-        if(middleObj.transform.localPosition.x < -.1f){
+        if(middleObj.transform.localPosition.x <= -.05f){
             currentlySelectedObjIndex++;
             if(currentlySelectedObjIndex > objects.Count - 1){
                 currentlySelectedObjIndex = 0;
@@ -102,12 +105,18 @@ public class DragAndDrop : MonoBehaviour {
                rightObj = Instantiate(objects[currentlySelectedObjIndex+1]) as GameObject;
             }
             rightObj.transform.parent = holder.transform;
-            rightObj.transform.localPosition = new Vector3(.1f, .06f, 0f);
+            rightObj.transform.localPosition = middleObj.transform.localPosition + new Vector3(.1f, 0, 0f);
             rightObj.transform.localEulerAngles = Vector3.zero;
         }
-
-
     }
 
+    void CenterMiddleObj(){
+        if(middleObj.transform.localPosition.x < 0.04f || middleObj.transform.localPosition.x > -0.04f){
+            float step = .25f * Time.deltaTime;
+            middleObj.transform.localPosition = Vector3.MoveTowards(middleObj.transform.localPosition, new Vector3 (0f, 0.06f, 0), step);
+            rightObj.transform.localPosition = Vector3.MoveTowards(rightObj.transform.localPosition, new Vector3 (.1f, 0.06f, 0), step);
+            leftObj.transform.localPosition = Vector3.MoveTowards(leftObj.transform.localPosition, new Vector3 (-.1f, 0.06f, 0), step);
+        }
+    }
 
 }

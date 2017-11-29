@@ -4,8 +4,8 @@ using UnityEngine;
 
 public class DragAndDrop : MonoBehaviour {
 
-    private SteamVR_TrackedObject trackedObject;
-    private SteamVR_Controller.Device device;
+    SteamVR_TrackedObject trackedObject;
+    SteamVR_Controller.Device device;
     GameObject holder;
 
     public List<GameObject> objects;
@@ -13,11 +13,36 @@ public class DragAndDrop : MonoBehaviour {
     GameObject leftObj;
     GameObject rightObj;
 
+    GameObject heldObject;
+
     bool objSpawned = false;
+
+    //menu info
+    int menuToggle = 0;
+    enum EditMode{Moving, Spawning};
+    EditMode editMode = EditMode.Spawning;
 
     int currentlySelectedObjIndex = 0;
 
     public LayerMask environment;
+
+
+
+    void OnEnable() {
+        SteamVR_TrackedController controller = GetComponent<SteamVR_TrackedController>();
+        controller.PadClicked += OnPadClicked;
+    }
+
+    void OnDisable() {
+        SteamVR_TrackedController controller = GetComponent<SteamVR_TrackedController>();
+        controller.PadClicked -= OnPadClicked;
+    }
+
+    void OnPadClicked(object sender, ClickedEventArgs e) {
+        StopCoroutine("MenuToggle");
+        StartCoroutine("MenuToggle");
+    }
+
 
     void Start(){
         trackedObject = GetComponent<SteamVR_TrackedObject>();
@@ -42,26 +67,35 @@ public class DragAndDrop : MonoBehaviour {
     void Update(){
         device = SteamVR_Controller.Input((int)trackedObject.index);
         
-        //scroll thru menu when touching touchpad
-        if(GetComponent<SteamVR_TrackedController>().padTouched){
-            StartCoroutine("ScrollSelectItem");
-        } else {
-            StopCoroutine("ScrollSelectItem");
-        }
+        if (editMode == EditMode.Spawning){
+            //scroll thru menu when touching touchpad
+            if(GetComponent<SteamVR_TrackedController>().padTouched){
+                StartCoroutine("ScrollSelectItem");
+            } else {
+                StopCoroutine("ScrollSelectItem");
+            }
 
-        //snap middle object to center when not touching touchpad
-        if(!GetComponent<SteamVR_TrackedController>().padTouched){
-            CenterMiddleObj();
-        }
+            //snap middle object to center when not touching touchpad
+            if(!GetComponent<SteamVR_TrackedController>().padTouched){
+                CenterMiddleObj();
+            }
 
-        //spawn obj when pressing trigger
-        if(GetComponent<SteamVR_TrackedController>().triggerPressed && !objSpawned){
-            SpawnObj();
-            objSpawned = true;
-        }
-
-        if(!GetComponent<SteamVR_TrackedController>().triggerPressed){
-            objSpawned = false;
+            //spawn obj when pressing trigger
+            if(GetComponent<SteamVR_TrackedController>().triggerPressed ){
+                if(!objSpawned){
+                    SpawnObj();
+                    objSpawned = true;
+                }
+                ObjFollowCursor();
+            
+            }
+            if(!GetComponent<SteamVR_TrackedController>().triggerPressed){
+                objSpawned = false;
+                if(heldObject != null){
+                    heldObject.GetComponent<Rigidbody>().isKinematic = false;
+                }
+                heldObject = null;
+            }
         }
     }
 
@@ -85,7 +119,7 @@ public class DragAndDrop : MonoBehaviour {
             if(currentlySelectedObjIndex < 0){
                 currentlySelectedObjIndex = objects.Count - 1;
             }
-            Debug.Log(currentlySelectedObjIndex);
+            //Debug.Log(currentlySelectedObjIndex);
             
             Destroy(rightObj);
             rightObj = middleObj;
@@ -141,9 +175,58 @@ public class DragAndDrop : MonoBehaviour {
         Ray raycast = new Ray(transform.position, transform.forward);
         RaycastHit hit;
         if(Physics.Raycast(raycast, out hit, Mathf.Infinity, environment)){
-            Instantiate(middleObj, hit.point, Quaternion.identity);
+            heldObject = Instantiate(middleObj, hit.point + hit.normal * .25f, Quaternion.identity) as GameObject;
+            heldObject.transform.localScale = new Vector3(.5f, .5f, .5f);
+            heldObject.GetComponent<Rigidbody>().isKinematic = true;
+        } else {
+            heldObject = Instantiate(middleObj, raycast.GetPoint(5), Quaternion.identity) as GameObject;
+            heldObject.transform.localScale = new Vector3(.5f, .5f, .5f);
+            heldObject.GetComponent<Rigidbody>().isKinematic = true;
         }
+    }
 
+    void ObjFollowCursor(){
+        Ray ray = new Ray(transform.position, transform.forward);
+		RaycastHit hit;
+
+		if(Physics.SphereCast(ray, .25f, out hit, Mathf.Infinity, environment) && heldObject != null){
+            heldObject.transform.position = hit.point + hit.normal * .25f;
+            heldObject.GetComponent<Rigidbody>().isKinematic = true;
+        } if(!Physics.SphereCast(ray, .25f, out hit, Mathf.Infinity, environment) && heldObject != null){
+            heldObject.transform.position = ray.GetPoint(5);
+            heldObject.GetComponent<Rigidbody>().isKinematic = true;
+
+        } 
+    }
+
+    IEnumerator MenuToggle(){          
+        menuToggle = 1 - menuToggle;
+        float percent = 0;
+        float time = .225f;
+        float speed = 1 / time;
+
+        //close
+        if(menuToggle == 1){
+            editMode = EditMode.Moving;
+            while(percent < 1){
+                percent += Time.deltaTime * speed;
+                middleObj.transform.localScale = Vector3.Lerp(middleObj.transform.localScale, Vector3.zero, percent);
+                rightObj.transform.localScale = Vector3.Lerp(rightObj.transform.localScale, Vector3.zero, percent);
+                leftObj.transform.localScale = Vector3.Lerp(leftObj.transform.localScale, Vector3.zero, percent);
+                yield return null;
+            }
+
+        //open
+        } else {
+            editMode = EditMode.Spawning;
+            while(percent < 1){
+                percent += Time.deltaTime * speed;
+                middleObj.transform.localScale = Vector3.Lerp(Vector3.zero, new Vector3(0.05f, 0.05f, 0.05f), percent);
+                rightObj.transform.localScale = Vector3.Lerp(Vector3.zero, new Vector3(0.05f, 0.05f, 0.05f), percent);
+                leftObj.transform.localScale = Vector3.Lerp(Vector3.zero, new Vector3(0.05f, 0.05f, 0.05f), percent);
+                yield return null;
+            }
+        }
     }
 
 }

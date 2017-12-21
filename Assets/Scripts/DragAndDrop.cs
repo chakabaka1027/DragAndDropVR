@@ -6,6 +6,8 @@ public class DragAndDrop : MonoBehaviour {
 
     SteamVR_TrackedObject trackedObject;
     SteamVR_Controller.Device device;
+    public GameObject leftController;
+
     GameObject holder;
 
     public List<GameObject> objects;
@@ -16,6 +18,7 @@ public class DragAndDrop : MonoBehaviour {
     GameObject heldObject;
 
     bool objSpawned = false;
+    bool isMoving = false;
 
     //menu info
     int menuToggle = 0;
@@ -27,7 +30,9 @@ public class DragAndDrop : MonoBehaviour {
     public LayerMask environment;
     public LayerMask spawnableObjects;
 
-
+    float maxObjDistance;
+    float objDistance;
+    float objScale;
 
     void OnEnable() {
         SteamVR_TrackedController controller = GetComponent<SteamVR_TrackedController>();
@@ -94,7 +99,6 @@ public class DragAndDrop : MonoBehaviour {
                     objSpawned = true;
                 }
                 ObjFollowCursor();
-            
             }
             if(!GetComponent<SteamVR_TrackedController>().triggerPressed){
                 objSpawned = false;
@@ -109,12 +113,22 @@ public class DragAndDrop : MonoBehaviour {
             //move obj when pressing trigger
             if(GetComponent<SteamVR_TrackedController>().triggerPressed){
                 ObjFollowCursor();
+                //RotateObj();
             }
             if(!GetComponent<SteamVR_TrackedController>().triggerPressed){
                 if(heldObject != null){
                     heldObject.GetComponent<Rigidbody>().isKinematic = false;
                 }
                 heldObject = null;
+                isMoving = false;
+            }
+
+            if(leftController.GetComponent<SteamVR_TrackedController>().triggerPressed){
+                StartCoroutine("Scale");
+                heldObject.transform.localScale = new Vector3(heldObject.transform.localScale.x + objScale, heldObject.transform.localScale.y + objScale, heldObject.transform.localScale.z + objScale);
+            } else {
+                StopCoroutine("Scale");
+                objScale = 0;
             }
         }
     }
@@ -194,11 +208,17 @@ public class DragAndDrop : MonoBehaviour {
     void SpawnObj(){
         Ray raycast = new Ray(transform.position, transform.forward);
         RaycastHit hit;
+
+        StopCoroutine("MenuToggle");
+        StartCoroutine("MenuToggle");
+
         if(Physics.Raycast(raycast, out hit, Mathf.Infinity, environment)){
+            objDistance = hit.distance;
             heldObject = Instantiate(middleObj, hit.point + hit.normal * .25f, Quaternion.identity) as GameObject;
             heldObject.transform.localScale = new Vector3(.5f, .5f, .5f);
             heldObject.GetComponent<Rigidbody>().isKinematic = true;
         } else {
+            objDistance = 5;
             heldObject = Instantiate(middleObj, raycast.GetPoint(5), Quaternion.identity) as GameObject;
             heldObject.transform.localScale = new Vector3(.5f, .5f, .5f);
             heldObject.GetComponent<Rigidbody>().isKinematic = true;
@@ -210,10 +230,34 @@ public class DragAndDrop : MonoBehaviour {
 		RaycastHit hit;
 
 		if(Physics.SphereCast(ray, .25f, out hit, Mathf.Infinity, environment) && heldObject != null){
-            heldObject.transform.position = hit.point + hit.normal * .25f;
+            isMoving = true;
+            maxObjDistance = hit.distance;
+            if(GetComponent<SteamVR_TrackedController>().padTouched){
+                StartCoroutine("ModifyObjDistance");
+            } else {
+                StopCoroutine("ModifyObjDistance");
+            }
+
+            if(objDistance >= maxObjDistance){
+                //objDistance = maxObjDistance;
+                heldObject.transform.position = hit.point + hit.normal * .25f;
+            } else {
+                heldObject.transform.position = ray.GetPoint(objDistance);
+            }
+           
             heldObject.GetComponent<Rigidbody>().isKinematic = true;
         } if(!Physics.SphereCast(ray, .25f, out hit, Mathf.Infinity, environment) && heldObject != null){
-            heldObject.transform.position = ray.GetPoint(5);
+            isMoving = true;
+
+            maxObjDistance = hit.distance;
+
+            if(GetComponent<SteamVR_TrackedController>().padTouched){
+                StartCoroutine("ModifyObjDistance");
+            } else {
+                StopCoroutine("ModifyObjDistance");
+            }
+
+            heldObject.transform.position = ray.GetPoint(objDistance);
             heldObject.GetComponent<Rigidbody>().isKinematic = true;
 
         } 
@@ -233,28 +277,59 @@ public class DragAndDrop : MonoBehaviour {
         float time = .225f;
         float speed = 1 / time;
 
-        //close
-        if(menuToggle == 1){
-            editMode = EditMode.Moving;
-            while(percent < 1){
-                percent += Time.deltaTime * speed;
-                middleObj.transform.localScale = Vector3.Lerp(middleObj.transform.localScale, Vector3.zero, percent);
-                rightObj.transform.localScale = Vector3.Lerp(rightObj.transform.localScale, Vector3.zero, percent);
-                leftObj.transform.localScale = Vector3.Lerp(leftObj.transform.localScale, Vector3.zero, percent);
-                yield return null;
-            }
+        if(!isMoving){
+            //close
+            if(menuToggle == 1){
+                editMode = EditMode.Moving;
+                while(percent < 1){
+                    percent += Time.deltaTime * speed;
+                    middleObj.transform.localScale = Vector3.Lerp(middleObj.transform.localScale, Vector3.zero, percent);
+                    rightObj.transform.localScale = Vector3.Lerp(rightObj.transform.localScale, Vector3.zero, percent);
+                    leftObj.transform.localScale = Vector3.Lerp(leftObj.transform.localScale, Vector3.zero, percent);
+                    yield return null;
+                }
 
-        //open
-        } else {
-            editMode = EditMode.Spawning;
-            while(percent < 1){
-                percent += Time.deltaTime * speed;
-                middleObj.transform.localScale = Vector3.Lerp(Vector3.zero, new Vector3(0.05f, 0.05f, 0.05f), percent);
-                rightObj.transform.localScale = Vector3.Lerp(Vector3.zero, new Vector3(0.05f, 0.05f, 0.05f), percent);
-                leftObj.transform.localScale = Vector3.Lerp(Vector3.zero, new Vector3(0.05f, 0.05f, 0.05f), percent);
-                yield return null;
+            //open
+            } else {
+                editMode = EditMode.Spawning;
+                while(percent < 1){
+                    percent += Time.deltaTime * speed;
+                    middleObj.transform.localScale = Vector3.Lerp(Vector3.zero, new Vector3(0.05f, 0.05f, 0.05f), percent);
+                    rightObj.transform.localScale = Vector3.Lerp(Vector3.zero, new Vector3(0.05f, 0.05f, 0.05f), percent);
+                    leftObj.transform.localScale = Vector3.Lerp(Vector3.zero, new Vector3(0.05f, 0.05f, 0.05f), percent);
+                    yield return null;
+                }
             }
         }
+    }
+
+    IEnumerator ModifyObjDistance(){
+        //calculate swipe magnitude
+        float initialTouch = device.GetAxis().y;
+        yield return new WaitForSeconds(0.0001f);
+        float finalTouch = device.GetAxis().y;
+        float touchDistance = finalTouch - initialTouch;
+
+        //alter objDistance based on touch magnitude
+        objDistance += (touchDistance * 3f);
+        if (objDistance <= .5f){
+            objDistance = .5f;
+        }
+    }
+
+    void RotateObj(){
+        //heldObject.transform.eulerAngles = - (leftController.transform.localEulerAngles * 2);
+        heldObject.transform.eulerAngles = new Vector3(0, -leftController.transform.localEulerAngles.y * 3, 0);
+    }
+
+    IEnumerator Scale(){
+        //calculate swipe magnitude
+        Vector3 initialPos = leftController.transform.position;
+        yield return new WaitForSeconds(0.0001f);
+        Vector3 finalPos = leftController.transform.position;
+        float posDistance = Vector3.Distance(initialPos, finalPos);
+        Debug.Log(posDistance);
+        objScale += posDistance;
     }
 
 }

@@ -32,7 +32,10 @@ public class DragAndDrop : MonoBehaviour {
 
     float maxObjDistance;
     float objDistance;
+    
+    
     float objScale;
+    float controllerDistance;
 
     void OnEnable() {
         SteamVR_TrackedController controller = GetComponent<SteamVR_TrackedController>();
@@ -323,13 +326,31 @@ public class DragAndDrop : MonoBehaviour {
     }
 
     IEnumerator Scale(){
-        //calculate swipe magnitude
+        //obtain scaling factor
         Vector3 initialPos = leftController.transform.position;
         yield return new WaitForSeconds(0.0001f);
         Vector3 finalPos = leftController.transform.position;
         float posDistance = Vector3.Distance(initialPos, finalPos);
-        Debug.Log(posDistance);
-        objScale += posDistance;
+        
+        //account for sensor tracking noise
+        if(posDistance < .001f){
+            posDistance = 0;
+        }
+
+        float tempControllerDistance = Vector3.Distance(leftController.transform.position, transform.position);
+
+        if(tempControllerDistance < controllerDistance){
+            objScale = -posDistance * 2;
+        } else if(tempControllerDistance > controllerDistance){
+            objScale = posDistance * 2;
+        }
+
+        controllerDistance = tempControllerDistance;
+
+    }
+
+    void Rotate(){
+
     }
 
 }

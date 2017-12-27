@@ -248,8 +248,8 @@ public class DragAndDrop : MonoBehaviour {
             isMoving = true;
             maxObjDistance = hit.distance;
 
+            //limit object distance so it doesn't collide through walls
             if(objDistance >= maxObjDistance){
-                //objDistance = maxObjDistance;
                 heldObject.transform.position = hit.point + hit.normal * .25f;
             } else {
                 heldObject.transform.position = ray.GetPoint(objDistance);
@@ -286,11 +286,13 @@ public class DragAndDrop : MonoBehaviour {
     }
 
     void IdentifyTarget(){
-        Ray raycast = new Ray(transform.position, transform.forward);
+        Ray ray = new Ray(transform.position, transform.forward);
         RaycastHit hit;
-        if(Physics.Raycast(raycast, out hit, Mathf.Infinity, spawnableObjects)){
+        if(Physics.Raycast(ray, out hit, Mathf.Infinity, spawnableObjects)){
             heldObject = hit.collider.gameObject;
-            objDistance = hit.distance +.25f;
+            Vector3 heldObjCenter = heldObject.GetComponent<MeshRenderer>().bounds.center;
+            float offset = Vector3.Distance(hit.point, heldObjCenter);
+            objDistance = hit.distance + offset;
         } 
     }
 

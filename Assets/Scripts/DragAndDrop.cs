@@ -18,6 +18,7 @@ public class DragAndDrop : MonoBehaviour {
     GameObject rightObj;
 
     GameObject heldObject;
+    float heldObjectThickness;
 
     bool objSpawned = false;
     bool isMoving = false;
@@ -90,7 +91,7 @@ public class DragAndDrop : MonoBehaviour {
         otherDevice = SteamVR_Controller.Input((int)otherTrackedObject.index);
 
         //pressing the left controller touch pad
-        if(leftController.GetComponent<SteamVR_TrackedController>().padPressed){
+        if(GetComponent<SteamVR_TrackedController>().menuPressed){
             Destroy();
         }
 
@@ -244,13 +245,14 @@ public class DragAndDrop : MonoBehaviour {
         Ray ray = new Ray(transform.position, transform.forward);
 		RaycastHit hit;
 
-		if(Physics.SphereCast(ray, .25f, out hit, Mathf.Infinity, environment) && heldObject != null){
+		if(Physics.SphereCast(ray, heldObject.GetComponent<MeshRenderer>().bounds.extents.x, out hit, Mathf.Infinity, environment) && heldObject != null){
             isMoving = true;
             maxObjDistance = hit.distance;
 
             //limit object distance so it doesn't collide through walls
             if(objDistance >= maxObjDistance){
-                heldObject.transform.position = hit.point + hit.normal * .25f;
+                float offset = Vector3.Distance(hit.point, heldObject.transform.position);
+                heldObject.transform.position = hit.point + hit.normal * heldObject.GetComponent<MeshRenderer>().bounds.extents.x;
             } else {
                 heldObject.transform.position = ray.GetPoint(objDistance);
             }
@@ -290,8 +292,7 @@ public class DragAndDrop : MonoBehaviour {
         RaycastHit hit;
         if(Physics.Raycast(ray, out hit, Mathf.Infinity, spawnableObjects)){
             heldObject = hit.collider.gameObject;
-            Vector3 heldObjCenter = heldObject.GetComponent<MeshRenderer>().bounds.center;
-            float offset = Vector3.Distance(hit.point, heldObjCenter);
+            float offset = Vector3.Distance(hit.point, heldObject.transform.position);
             objDistance = hit.distance + offset;
         } 
     }
@@ -370,7 +371,7 @@ public class DragAndDrop : MonoBehaviour {
 
         //calculate swipe magnitude
         float initialTouch = otherDevice.GetAxis().x;
-        yield return new WaitForSeconds(0.01f);
+        yield return new WaitForSeconds(0.001f);
         float finalTouch = otherDevice.GetAxis().x;
 
         float touchVector = initialTouch - finalTouch;
@@ -391,11 +392,11 @@ public class DragAndDrop : MonoBehaviour {
         ////heldObject.transform.RotateAround(heldObject.transform.position, Camera.main.transform.InverseTransformDirection(Vector3.up), touchVector.x * 100);
         ////heldObject.transform.RotateAround(heldObject.transform.position, Camera.main.transform.InverseTransformDirection(Vector3.right), -touchVector.y * 100);
         
-        heldObject.transform.Rotate(new Vector3(0, touchVector * 100, 0), Space.World);
+        heldObject.transform.Rotate(new Vector3(0, touchVector * 10, 0), Space.World);
      }
 
      void Destroy(){
-        Ray raycast = new Ray(leftController.transform.position, transform.forward);
+        Ray raycast = new Ray(transform.position, transform.forward);
         RaycastHit hit;
         if(Physics.Raycast(raycast, out hit, Mathf.Infinity, spawnableObjects)){
             Destroy(hit.collider.gameObject);

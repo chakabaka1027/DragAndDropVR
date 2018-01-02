@@ -43,20 +43,38 @@ public class DragAndDrop : MonoBehaviour {
     Quaternion rotateBy;
 
     void OnEnable() {
-        SteamVR_TrackedController controller = GetComponent<SteamVR_TrackedController>();
-        controller.PadClicked += OnPadClicked;
-        controller.TriggerClicked += OnTriggerClicked;
+        SteamVR_TrackedController rController = GetComponent<SteamVR_TrackedController>();
+        SteamVR_TrackedController lController = leftController.GetComponent<SteamVR_TrackedController>();
+        rController.PadClicked += OnPadClicked;
+        rController.TriggerClicked += OnTriggerClicked;
+
+        lController.PadTouched += OnPadTouched;
+        lController.PadUntouched += OnPadUntouched;
     }
 
     void OnDisable() {
-        SteamVR_TrackedController controller = GetComponent<SteamVR_TrackedController>();
-        controller.PadClicked -= OnPadClicked;
-        controller.TriggerClicked -= OnTriggerClicked;
+        SteamVR_TrackedController rController = GetComponent<SteamVR_TrackedController>();
+        SteamVR_TrackedController lController = leftController.GetComponent<SteamVR_TrackedController>();
+        rController.PadClicked -= OnPadClicked;
+        rController.TriggerClicked -= OnTriggerClicked;
+
+        lController.PadTouched -= OnPadTouched;
+        lController.PadUntouched -= OnPadUntouched;
+
     }
 
     void OnPadClicked(object sender, ClickedEventArgs e) {
         StopCoroutine("MenuToggle");
         StartCoroutine("MenuToggle");
+    }
+
+    void OnPadTouched(object sender, ClickedEventArgs e) {
+        Debug.Log("Touched");
+
+    }
+
+    void OnPadUntouched(object sender, ClickedEventArgs e) {
+        Debug.Log("Untouched");
     }
 
     void OnTriggerClicked(object sender, ClickedEventArgs e) {

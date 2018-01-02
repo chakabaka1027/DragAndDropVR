@@ -151,7 +151,7 @@ public class DragAndDrop : MonoBehaviour {
             }
             if(!GetComponent<SteamVR_TrackedController>().triggerPressed){
                 if(heldObject != null){
-                    heldObject.transform.parent = null;
+                    //heldObject.transform.parent = null;
                     heldObject.GetComponent<Rigidbody>().isKinematic = false;
                 }
                 heldObject = null;
@@ -293,9 +293,9 @@ public class DragAndDrop : MonoBehaviour {
         }
 
         //held obj has same rotation as controller when being moved
-        if(heldObject != null){
-            heldObject.transform.parent = transform;
-        }
+        //if(heldObject != null){
+            //heldObject.transform.parent = transform;
+        //}
 
         if(leftController.GetComponent<SteamVR_TrackedController>().padTouched){
             StartCoroutine("Rotate");
@@ -389,7 +389,7 @@ public class DragAndDrop : MonoBehaviour {
 
         //calculate swipe magnitude
         float initialTouch = otherDevice.GetAxis().x;
-        yield return new WaitForSeconds(0.001f);
+        yield return new WaitForSeconds(0.01f);
         float finalTouch = otherDevice.GetAxis().x;
 
         float touchVector = initialTouch - finalTouch;
@@ -410,7 +410,7 @@ public class DragAndDrop : MonoBehaviour {
         ////heldObject.transform.RotateAround(heldObject.transform.position, Camera.main.transform.InverseTransformDirection(Vector3.up), touchVector.x * 100);
         ////heldObject.transform.RotateAround(heldObject.transform.position, Camera.main.transform.InverseTransformDirection(Vector3.right), -touchVector.y * 100);
         
-        heldObject.transform.Rotate(new Vector3(0, touchVector * 10, 0), Space.World);
+        heldObject.transform.Rotate(new Vector3(0, touchVector * 50, 0), Space.Self);
      }
 
      void Destroy(){

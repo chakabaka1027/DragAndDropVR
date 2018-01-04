@@ -31,6 +31,11 @@ public class DragAndDrop : MonoBehaviour {
     Vector3 newPos;
     Vector3 heldObjVelocity;
 
+    //torque info
+    Vector3 oldRot;
+    Vector3 newRot;
+    Vector3 heldObjRotation;
+
     //menu info
     int menuToggle = 0;
     enum EditMode{Moving, Spawning};
@@ -47,14 +52,11 @@ public class DragAndDrop : MonoBehaviour {
     float objScale;
     float controllerDistance;
 
-    Quaternion rotateBy;
-
     void OnEnable() {
         SteamVR_TrackedController rController = GetComponent<SteamVR_TrackedController>();
         SteamVR_TrackedController lController = leftController.GetComponent<SteamVR_TrackedController>();
         rController.PadClicked += OnPadClicked;
         rController.TriggerClicked += OnTriggerClicked;
-        rController.TriggerUnclicked += OnTriggerUnclicked;
 
         lController.PadTouched += OnPadTouched;
         lController.PadUntouched += OnPadUntouched;
@@ -65,7 +67,6 @@ public class DragAndDrop : MonoBehaviour {
         SteamVR_TrackedController lController = leftController.GetComponent<SteamVR_TrackedController>();
         rController.PadClicked -= OnPadClicked;
         rController.TriggerClicked -= OnTriggerClicked;
-        rController.TriggerUnclicked -= OnTriggerUnclicked;
 
         lController.PadTouched -= OnPadTouched;
         lController.PadUntouched -= OnPadUntouched;
@@ -92,11 +93,6 @@ public class DragAndDrop : MonoBehaviour {
     void OnTriggerClicked(object sender, ClickedEventArgs e) {
         IdentifyTarget();
     }
-
-    void OnTriggerUnclicked(object sender, ClickedEventArgs e) {
-        StopCoroutine("Rotate");
-    }
-
 
 
     void Start(){
@@ -125,7 +121,6 @@ public class DragAndDrop : MonoBehaviour {
         device = SteamVR_Controller.Input((int)trackedObject.index);
         otherDevice = SteamVR_Controller.Input((int)otherTrackedObject.index);
 
-        GetVelocity();
         //pressing the left controller touch pad
         if(GetComponent<SteamVR_TrackedController>().menuPressed){
             Destroy();
@@ -166,6 +161,9 @@ public class DragAndDrop : MonoBehaviour {
             //move obj when pressing trigger
             if(GetComponent<SteamVR_TrackedController>().triggerPressed){
                 ObjFollowCursor();
+                GetVelocity();
+                GetTorque();
+
             }
             if(!GetComponent<SteamVR_TrackedController>().triggerPressed){
                 if(heldObject != null){
@@ -174,6 +172,7 @@ public class DragAndDrop : MonoBehaviour {
                     heldObject.GetComponent<Rigidbody>().isKinematic = false;
 
                     heldObject.GetComponent<Rigidbody>().AddForce(heldObjVelocity * 5, ForceMode.Impulse);
+                    heldObject.GetComponent<Rigidbody>().AddRelativeTorque(heldObjRotation, ForceMode.Acceleration);
                 }
                 heldObject = null;
                 isMoving = false;
@@ -284,46 +283,48 @@ public class DragAndDrop : MonoBehaviour {
         Ray ray = new Ray(transform.position, transform.forward);
 		RaycastHit hit;
 
-		if(Physics.SphereCast(ray, heldObject.GetComponent<MeshRenderer>().bounds.extents.x, out hit, Mathf.Infinity, environment) && heldObject != null){
-            isMoving = true;
-            maxObjDistance = hit.distance;
+        if(heldObject != null){
+		    if(Physics.SphereCast(ray, heldObject.GetComponent<MeshRenderer>().bounds.extents.x, out hit, Mathf.Infinity, environment)){
+                isMoving = true;
+                maxObjDistance = hit.distance;
 
-            //limit object distance so it doesn't collide through walls
-            if(objDistance >= maxObjDistance){
-                float offset = Vector3.Distance(hit.point, heldObject.transform.position);
-                heldObject.transform.position = hit.point + hit.normal * heldObject.GetComponent<MeshRenderer>().bounds.extents.x;
-            } else {
-                heldObject.transform.position = ray.GetPoint(objDistance);
-            }
+                //limit object distance so it doesn't collide through walls
+                if(objDistance >= maxObjDistance){
+                    float offset = Vector3.Distance(hit.point, heldObject.transform.position);
+                    heldObjectThickness = offset;
+                    heldObject.transform.position = hit.point + hit.normal * heldObject.GetComponent<MeshRenderer>().bounds.extents.x;
+                } else {
+                    heldObject.transform.position = ray.GetPoint(objDistance);
+                }
            
-            heldObject.GetComponent<Rigidbody>().isKinematic = true;
-        } if(!Physics.SphereCast(ray, .25f, out hit, Mathf.Infinity, environment) && heldObject != null){
-            isMoving = true;
+                heldObject.GetComponent<Rigidbody>().isKinematic = true;
+            } if(!Physics.SphereCast(ray, .25f, out hit, Mathf.Infinity, environment) && heldObject != null){
+                isMoving = true;
 
-            maxObjDistance = hit.distance;
+                maxObjDistance = hit.distance;
 
-            heldObject.transform.position = ray.GetPoint(objDistance);
-            heldObject.GetComponent<Rigidbody>().isKinematic = true;
+                heldObject.transform.position = ray.GetPoint(objDistance);
+                heldObject.GetComponent<Rigidbody>().isKinematic = true;
 
-        } 
+            } 
 
-        if(GetComponent<SteamVR_TrackedController>().padTouched){
-            StartCoroutine("ModifyObjDistance");
-        } else {
-            StopCoroutine("ModifyObjDistance");
+            if(GetComponent<SteamVR_TrackedController>().padTouched){
+                StartCoroutine("ModifyObjDistance");
+            } else {
+                StopCoroutine("ModifyObjDistance");
+            }
+
+            //held obj has same rotation as controller when being moved
+            if (heldObject != null) {
+                heldObject.transform.parent = transform;
+            }
+
+            if (leftController.GetComponent<SteamVR_TrackedController>().padTouched){
+                StartCoroutine("Rotate");
+            } else {
+                StopCoroutine("Rotate");
+            }
         }
-
-        //held obj has same rotation as controller when being moved
-        if (heldObject != null) {
-            heldObject.transform.parent = transform;
-        }
-
-        if (leftController.GetComponent<SteamVR_TrackedController>().padTouched){
-            StartCoroutine("Rotate");
-        } else {
-            StopCoroutine("Rotate");
-        }
-
     }
 
     void IdentifyTarget(){
@@ -416,6 +417,13 @@ public class DragAndDrop : MonoBehaviour {
         float finalTouch = otherDevice.GetAxis().x;
         float touchVector = initialTouch - finalTouch;
 
+        //initialTouch = otherDevice.GetAxis();
+        //Vector2 diff = initialTouch - finalTouch;
+        //Vector2 diffOverTime = diff/ Time.deltaTime;
+        //finalTouch = initialTouch;
+
+        //heldObject.transform.Rotate(new Vector3(0, -diffOverTime.x, 0), Space.Self);
+
         //float sensitivity = .5f;
 
         ////Get Main camera in Use.
@@ -424,17 +432,19 @@ public class DragAndDrop : MonoBehaviour {
         //Vector3 relativeUp = cam.transform.TransformDirection(Vector3.up);
         ////Gets world vector for space cameras right vector
         //Vector3 relativeRight = cam.transform.TransformDirection(Vector3.right);
- 
+
         ////Turns relativeUp vector from world to objects local space
         //Vector3 objectRelativeUp = heldObject.transform.InverseTransformDirection(relativeUp);
         ////Turns relativeRight vector from world to object local space
         //Vector3 objectRelativeRight = heldObject.transform.InverseTransformDirection(relativeRight);
-         
+
         ////heldObject.transform.RotateAround(heldObject.transform.position, Camera.main.transform.InverseTransformDirection(Vector3.up), touchVector.x * 100);
         ////heldObject.transform.RotateAround(heldObject.transform.position, Camera.main.transform.InverseTransformDirection(Vector3.right), -touchVector.y * 100);
-        
-        heldObject.transform.Rotate(new Vector3(0, touchVector * 50, 0), Space.Self);
-     }
+        if (leftController.GetComponent<SteamVR_TrackedController>().padTouched){
+            heldObject.transform.Rotate(new Vector3(0, touchVector * 50, 0), Space.Self);
+        }
+    }
+
 
      void CreateRotationCompass(){
         currentCompass = Instantiate(compass, heldObject.transform.position, heldObject.transform.rotation * Quaternion.Euler(90, 0, 0), heldObject.transform) as GameObject;
@@ -459,13 +469,19 @@ public class DragAndDrop : MonoBehaviour {
 
      void GetVelocity(){
         if(heldObject != null){
-
              newPos = transform.position;
-             Vector3 media =  (newPos - oldPos);
-             heldObjVelocity = media /Time.deltaTime;
+             Vector3 speed =  (newPos - oldPos);
+             heldObjVelocity = speed /Time.deltaTime;
              oldPos = newPos;
-             newPos = transform.position;
         }
+     }
 
+     void GetTorque(){
+        if(heldObject != null){
+             newRot = heldObject.transform.eulerAngles;
+             Vector3 rot =  (newRot - oldRot);
+             heldObjRotation = rot /Time.deltaTime;
+             oldRot = newRot;
+        }
      }
 }

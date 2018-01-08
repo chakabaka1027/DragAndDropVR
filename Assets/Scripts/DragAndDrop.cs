@@ -139,6 +139,10 @@ public class DragAndDrop : MonoBehaviour {
                 CenterMiddleObj();
             }
 
+            if(GetComponent<SteamVR_TrackedController>().padPressed){
+                ModifyObjDistanceLarge();
+            }
+
             //spawn obj when pressing trigger
             if(GetComponent<SteamVR_TrackedController>().triggerPressed){
                 if(!objSpawned){
@@ -267,8 +271,14 @@ public class DragAndDrop : MonoBehaviour {
         StartCoroutine("MenuToggle");
 
         if(Physics.Raycast(raycast, out hit, Mathf.Infinity, environment)){
-            objDistance = hit.distance;
-            heldObject = Instantiate(middleObj, hit.point + hit.normal * .25f, Quaternion.identity) as GameObject;
+            //limit the object's spawning distance to maximum so it doesn't spawn too far away from the player
+            if(hit.distance > 15){
+                objDistance = 15;
+                heldObject = Instantiate(middleObj, raycast.GetPoint(20), Quaternion.identity) as GameObject;
+            } else if(hit.distance <= 20){
+                objDistance = hit.distance;
+                heldObject = Instantiate(middleObj, hit.point + hit.normal * .25f, Quaternion.identity) as GameObject;
+            }
             heldObject.transform.localScale = new Vector3(.5f, .5f, .5f);
             heldObject.GetComponent<Rigidbody>().isKinematic = true;
         } else {
@@ -380,6 +390,18 @@ public class DragAndDrop : MonoBehaviour {
         objDistance += (touchDistance * 3f);
         if (objDistance <= .5f){
             objDistance = .5f;
+        }
+    }
+
+    void ModifyObjDistanceLarge(){
+        if(device.GetAxis().y > 0){
+            objDistance += Time.deltaTime * 2f;
+            Debug.Log("hi");
+        } else {
+            objDistance += Time.deltaTime * -2f;
+            if(objDistance <= .5f){
+                objDistance = .5f;
+            }        
         }
     }
 
